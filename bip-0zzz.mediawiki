@@ -17,13 +17,13 @@ This BIP introduces input expiration consensus-enforced semantics of the sequenc
 
 ==Motivation==
 
-The current mempool expiration function does function properly under current network conditions. Uncomfirmed transactions persist in the global mempool far beyond the intended expiration period and are regularly repropagated as the network topology changes. This situation leads to significant uncertainty for users of Bitcoin in terms of when their transactions will be confirmed, or definitively cancelled. This situation is mitigated if transactions are sent with RBF, and can be replaced with an alternative higher fee transaction consuming the same input, but in practice few wallets fully support the required behaviors.
+Mempool expiration does not function properly under current network conditions. Uncomfirmed transactions persist in the global mempool far beyond the intended expiration period and are regularly repropagated as the network topology changes. This situation leads to significant uncertainty for users of Bitcoin in terms of when their transactions will be confirmed, or definitively cancelled. This situation is mitigated if transactions are sent with RBF, and can be replaced with an alternative higher fee transaction consuming the same input, but in practice few wallets fully support the required behaviors.
 
 Additionally, the current uncertainty of confirmation time (even within the intended mempool expiration time) makes it difficult for payment requesters offering a time-limited exchange rate lock to their payers to offer a good user experience. If a payer initiates a payment in a timely manner, but pays fee that results the transaction confirming after the exchange rate lock expires; the payee must issue a refunding transaction, leading to significant unnecessary spend on fees, and block space waste.
 
 Finally, network and node memory resources are currently wasted storing and repropagating transactions which may never confirm.
 
-To solve the above problems, a mechanism to prevent the inclusion of a transaction _after_ a certain date is specified.
+To solve the above problems, a mechanism to prevent the inclusion of a transaction ''after'' a certain date is specified.
 
 ==Incentives==
 
@@ -35,53 +35,55 @@ This BIP may incentivize wallets to play transaction expiration fee roulette by 
 
 This specification is based on the relative time-lock mechanism introduced in [https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki BIP68].
 
-If sequence bit (1 << 30) is set then no consensus meaning is applied to the sequence number, and no additional restriction is applied to the input.
+If sequence bit <code>(1 << 30)</code> is set then no consensus meaning is applied to the sequence number, and no additional restriction is applied to the input.
 
-If sequence bit (1 << 31) is not set then BIP68 is followed and this BIP applies no additional restriction to the input.
+If sequence bit <code>(1 << 31)</code> is not set then BIP68 is followed and this BIP applies no additional restriction to the input.
 
-If sequence bit (1 << 31) is set, and bit (1 << 30) is not set then the sequence number is interpreted as an input expiration, and the transaction MUST NOT be mined after the specified time.
+If sequence bit <code>(1 << 31)</code> is set, and bit <code>(1 << 30)</code> is not set then the sequence number is interpreted as an input expiration, and the transaction MUST NOT be mined after the specified time.
 
-The input expiration value `n` is derived from the sequence by applying the mask 0x0000ffff.  A value of `n == 0` means the transaction can never be mined, and SHOULD NOT be used.
+The input expiration value <code>n</code> is derived from the sequence by applying the mask <code>0x0000ffff</code>.  A value of <code>n == 0</code> means the transaction can never be mined, and SHOULD NOT be used.
 
-===`time_base`===
+===<code>time_base</code>===
 
-If bit (1 << 29) is set, `time_base` is `nLockTime` and represents an MTP ([https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki BIP113]) or a block height as specified for `nLockTime`.
+If bit <code>(1 << 29)</code> is set, <code>time_base</code> is <code>nLockTime<code> and represents an MTP ([https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki BIP113]) or a block height as specified for <code>nLockTime</code>.
 
-If bit (1 << 29) is not set:
- * If bit (1 << 28) is set, `time_base` is the MTP of the block in which the output was mined.
- * If bit (1 << 28) is not set, `time_base` is the block height at which the output was mined.
+If bit <code>(1 << 29)</code> is not set:
+* If bit <code>(1 << 28)</code> is set, <code>time_base</code> is the MTP of the block in which the output was mined.
+* If bit <code>(1 << 28)</code> is not set, <code>time_base</code> is the block height at which the output was mined.
 
 ===Validation===
 
-For MTP `time_base` values, the input is not valid when the previous block's MTP is greater than or equal to `512 * n + time_base`.
+For MTP <code>time_base</code> values, the input is not valid when the previous block's MTP is greater than or equal to <code>512 * n + time_base</code>.
 
-For block height `time_base` values, the input is not valid when the previous block's height is greater than or equal to `n + time_base`.
+For block height <code>time_base</code> values, the input is not valid when the previous block's height is greater than or equal to <code>n + time_base</code>.
 
 ===Limitations===
 
-Approximately 1 year of time or block heights can be specified under this BIP, for `nLockTime` relative expiration this allows significant flexibility in specifying the validity window for transactions, but for output relative expiration, this could potentially make it impossible to use this feature with older inputs. If use cases demand greater flexibility, more bits could be allocated for specifying `n` (if all bits are used, approximately 5000 years of range are available) at the cost of other flexibility.
+Approximately 1 year of time or block heights can be specified under this BIP, for <code>nLockTime</code> relative expiration this allows significant flexibility in specifying the validity window for transactions, but for output relative expiration, this could potentially make it impossible to use this feature with older inputs. If use cases demand greater flexibility, more bits could be allocated for specifying <code>n</code> (if all bits are used, approximately 5000 years of range are available) at the cost of other flexibility.
 
 ==Deployment==
 
 This BIP will be deployed by "versionbits" [https://github.com/bitcoin/bips/blob/master/bip-0009.mediawiki BIP9] using bit TBD.
 
-For Bitcoin '''mainnet''', the BIP9 '''starttime''' will be TBD and BIP9 '''timeout''' will be TBD.
+For Bitcoin '''mainnet''', the BIP9 '''starttime''' will be TBD (Epoch timestamp TBD) and BIP9 '''timeout''' will be TBD (Epoch timestamp TBD).
 
-For Bitcoin '''testnet''', the BIP9 '''starttime''' will be TBD and BIP9 '''timeout''' will be TBD.
+For Bitcoin '''testnet''', the BIP9 '''starttime''' will be TBD (Epoch timestamp TBD) and BIP9 '''timeout''' will be TBD (Epoch timestamp TBD).
 
 ==Compatibility==
 
 All transactions specifying input expiration will also signal full-RBF. This is also true for transactions using relative lock-time, but has slightly stronger implications here, since the transaction is eligible for mining when it is initially published.
 
-Existing software will treat transactions specifying input expiration as valid full-RBF transactions, ensuring soft-fork semantics. Once this BIP activates, transactions with sequence numbers having bit (1 << 31) set and bit (1 << 30) not set which would have been valid before activation may not be accepted by the network.
+Existing software will treat transactions specifying input expiration as valid full-RBF transactions, ensuring soft-fork semantics. Once this BIP activates, transactions with sequence numbers having bit <code>(1 << 31)</code> set and bit <code>(1 << 30)</code> not set which would have been valid before activation may not be accepted by the network.
 
-Bits (1 << 16) through (1 << 27) inclusive are avaliable to expand the range of possible input expirations, or for other flags. 
+Bits <code>(1 << 16)</code> through <code>(1 << 27)</code> inclusive are avaliable to expand the range of possible input expirations, or for other flags. 
 
-If bits (1 << 30) and (1 << 31) are set, the remainder of the sequence bits have no consensus meaning, and may be used for further enhancements.
+If bits <code>(1 << 30)</code> and <code>(1 << 31)</code> are set, the remainder of the sequence bits have no consensus meaning, and may be used for further enhancements.
 
 ==Future Work==
 
 Transaction deadlines, which could be translated into input expiration values, SHOULD be added to [https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki BIP21] payment request URLs. This would allow payment processors, and payees to communicate to wallets how long they have to get their transaction mined, and enable the wallets to select an appropriate fee/expiration combination. Further, by specifying the expiration, no refund transaction will be required in the event that the exchange rate lock expires before the transaction can be confirmed.
+
+It may be interesting to add an OPCODE to allow outputs that are spendable by Alice until time foo, always spendable by Bob, and spendable by Joe only after time bar, or other such cases.
 
 ==Implementation==
 
